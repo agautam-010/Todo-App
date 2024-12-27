@@ -1,0 +1,60 @@
+#!/bin/bash
+
+red='\033[0;31m'
+green='\033[0;32m'
+reset='\033[0m'
+
+# Get the list of staged files
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Check if there are any staged files
+if [[ -z "$staged_files" ]]; then
+  echo -e "$red No staged files found.$reset"
+  exit 0
+fi
+
+# Initialize variable to hold JavaScript files
+javascript_files=""
+# Loop through the staged files to separate JavaScript and image files
+for file in $staged_files; do
+  if [[ "$file" =~ \.(js|jsx|ts|tsx)$ ]]; then
+    javascript_files+=" $file"
+  fi
+done
+
+# Initialize variable to track whether console.log is found
+console_log_found=false
+ignored_file="src/utils/functions.ts"
+
+# Loop through the JavaScript files and check for console.log
+for file in $javascript_files; do
+  # Skip ignored file
+  if [[ "$file" == "$ignored_file" ]]; then
+    continue  # Skip the ignored file
+  fi
+
+  # Check for console.log in the file
+  if grep -q "console\.log" "$file"; then
+    console_log_found=true
+    echo -e "$red console.log statements not allowed: $green$file$reset"
+  fi
+done
+
+if [ "$console_log_found" = true ]; then
+  echo -e "$red"
+  exit 1
+fi
+
+# Run linting on JavaScript files if any
+if [[ -n "$javascript_files" && "$console_log_found" = false ]]; then
+  echo "Linting JavaScript files:"
+  for file in $javascript_files; do
+    # Check for linting tool in the local directory (cross-platform)
+    if command -v npm &> /dev/null; then
+      npm run lint "$file"
+    else
+      echo -e "$red npm command not found. Please install npm.$reset"
+      exit 1
+    fi
+  done
+fi
